@@ -1,21 +1,22 @@
 # nix-config
 
-NixOS + home-manager flake for a ThinkPad T480s (`t480s`).
+NixOS + home-manager flake for a ThinkPad T480s, mostly a copy of
+[Kranzes/nix-config](https://github.com/Kranzes/nix-config) (tamarin) flattened
+for one host and one user.
 
-- **nixos-unstable**, structured with flake-parts (layout borrowed from
-  [Kranzes/nix-config](https://github.com/Kranzes/nix-config))
-- **disko**: GPT, 1G ESP, LUKS2 → ext4, swapfile
+- **nixos-unstable**, latest Nix, srvos networking, perlless profile (perl still allowed)
+- **disko**: disko's `luks-btrfs-subvolumes` example (LUKS2 → btrfs `/`, `/home`, `/nix`, swapfile)
+- **nixos-facter** for hardware detection instead of `hardware-configuration.nix`
 - **lanzaboote**: Secure Boot keys are generated and enrolled automatically,
   then the LUKS volume is re-sealed to a `systemd-pcrlock` (measured boot) policy
-- **Hyprland** (UWSM, Lua config) + **noctalia** shell, regreet login
-- **claude-code** from [llm-agents.nix](https://github.com/numtide/llm-agents.nix)
+- **Hyprland** (UWSM, Lua config) + **noctalia** (legacy-v4) + regreet, catppuccin everywhere
+- nixvim, ghostty, firefox (Betterfox + addons), CUPS printing
+- **claude-code** + herdr from [llm-agents.nix](https://github.com/numtide/llm-agents.nix)
 
 ```
-flake.nix
-hosts/      flake-module.nix wires up nixosConfigurations; one dir per host
-profiles/   reusable NixOS modules, exported as nixosModules.profiles-*
+flake.nix   inputs, nixosConfigurations.t480s, treefmt (`nix fmt`)
+nixos/      system modules (hardware.nix = disko + facter + lanzaboote)
 home/       home-manager config for shahar
-dev/        devShell + treefmt (`nix fmt`)
 ```
 
 ## Fresh install
@@ -31,10 +32,13 @@ dev/        devShell + treefmt (`nix fmt`)
   while in Setup Mode, disable Secure Boot for now and turn it back on after
   step 4.
 
-### 2. Partition
+### 2. Hardware report + partition
 
 ```console
 $ git clone https://github.com/shaharulo/nix-config && cd nix-config
+$ sudo nix --extra-experimental-features 'nix-command flakes' \
+    run nixpkgs#nixos-facter -- -o nixos/facter.json
+$ git add nixos/facter.json   # flakes only see tracked files
 $ sudo nix --extra-experimental-features 'nix-command flakes' \
     run github:nix-community/disko/latest -- --mode destroy,format,mount --flake .#t480s
 ```
@@ -71,7 +75,7 @@ The first generation is installed unsigned.
    reboots.
 2. **Boot 2:** systemd-boot enrolls the keys and Secure Boot is now enforcing.
    `auto-cryptenroll` wipes the bootstrap TPM2 slot, re-enrolls it against the
-   `systemd-pcrlock` policy (PCRs 0, 4, 7) and reboots.
+   `systemd-pcrlock` policy (PCRs 0, 2, 3, 4, 7) and reboots.
 3. **Boot 3:** the disk unlocks only if firmware, Secure Boot state and the
    signed lanzaboote stub match the policy. Every `nixos-rebuild` updates the
    policy automatically.
@@ -98,5 +102,7 @@ $ nix flake update && nix fmt
 ```
 
 `sudo` is replaced with `run0`, and a `sudo` shim is kept. Keybinds are in
-`home/shahar/hyprland.nix`. `SUPER+Space` opens the launcher, `SUPER+comma`
-opens noctalia settings and `SUPER+Return` opens a terminal.
+`home/hyprland.nix`. `SUPER+Space` opens fuzzel, `SUPER+comma` opens noctalia
+settings and `SUPER+Return` opens a terminal.
+
+Commit `nixos/facter.json` once generated.

@@ -13,6 +13,7 @@
     };
   };
 
-  # Used by noctalia's calendar.
+  security.pam.services.hyprlock = { };
+
   services.gnome.evolution-data-server.enable = true;
 }
